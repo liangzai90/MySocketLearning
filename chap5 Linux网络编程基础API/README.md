@@ -178,10 +178,12 @@ const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
 指向的内存中。其中，
 
 af参数指定地址族，可以使AF_INET或者AF_INET6.
+
 * inet_pton成功时返回1，失败则返回0并设置errno。
 
 **inet_ntop**函数进行相反的转换，前3个参数的含义与inet_pton的参数相同，最后一个参数cnt
 指定目标存储单元大小。下面的2个宏可以帮助我们指定这个大小（分别用于IPv4和IPv6）
+
 * inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
 
 
@@ -226,6 +228,8 @@ type 参数指定服务器类型（SOCK_STREAM, SOCK_DGRAM）
 
 protocol 参数是在前面两个参数构成的协议集合下，再选择一个具体协议。通常为0，使用默认协议。
 
+* socket系统调用成功时返回一个socket文件描述符，失败则返回-1，并设置errno。
+
 
 -----------------------------------------------------------------
 
@@ -268,33 +272,114 @@ socket参数指定被监听的socket。
 backlog参数提示内核监听队列的最大长度。
 
 * listen成功时返回0，失败则返回-1,并设置errno。
+
 半连接状态：SYN_RCVD
 完全连接状态：ESTABLISHED
 
 
-```C++
+-----------------------------------------------------------------
 
-```
+### 8.接受连接
 
-
-```C++
-
-```
-
+下面的系统调用从listen监听队列中接受一个连接：
 
 ```C++
+#include <sys/types.h>
+#include <sys/socket.h>
 
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 ```
+sockfd参数是执行过listen系统调用的监听socket。
 
+addr参数用来获取被接受连接的远端socket地址，该socket地址的长度由addrlen参数指出。
+
+accept成功时**返回一个新的连接socket**，该socket唯一地标识了被接受的这个连接，
+**服务器可以通过读写该socket来与被接受连接对应的客户端通信**。
+
+* accept失败时返回-1，并设置errno。
+
+
+-----------------------------------------------------------------
+
+### 9.发起连接
+
+如果说服务器通过listen调用来被动接受连接，那么客户端需要通过如下系统调用来主动与服务器建立连接：
 
 ```C++
+#include <sys/types.h>
+#include <sys/socket.h>
 
+int connect(int sockfd, const struct sockaddr *serv_addr, socklen_t addrlen);
 ```
+sockfd参数由socket系统调用返回一个socket
 
+serv_addr参数是服务器监听的socket地址
+
+addlen参数则指定这个地址的长度
+
+**一旦成功建立连接，sockfd 就唯一表示了这个连接，客户端就可以通过读写sockfd来与服务器通信**。
+
+* connect成功时返回0。失败则返回-1，并设置errno。
+
+
+-----------------------------------------------------------------
+
+### 10.关闭连接
+
+关闭一个连接实际上就是关闭该连接对应的socket，这可以通过如下关闭普通文件描述符的系统调用来完成：
 
 ```C++
+#include <unistd.h>
 
+int close(int fd);
 ```
+fd参数是待关闭的socket。
+
+不过，close系统调用并非总是立即关闭一个连接，而是将fd的引用计数减1.只有当fd的引用计数为0时，才真正关闭连接。
+在多进程中，一次fork系统调用默认将是父进程中打开的socket的引用计数加1，因此**必须在父进程和子进程中
+都对该socket执行close调用才能真正将连接关闭**。
+
+
+无论如何都要立即终止连接（而不是将socket的引用计数减1），可以使用如下的shutdown系统调用：
+```C++
+#include <sys/socket.h>
+
+int shutdown(int sockfd, int howto);
+```
+sockfd参数是待关闭的socket。
+
+howto参数决定了shutdown的行为。
+
+* shutdown成功时返回0，失败则返回-1，并设置errno。
+
+
+-----------------------------------------------------------------
+
+### 11.TCP数据读写
+
+对文件的读写操作read和write同样适用于socket。但是socket编程接口提供了几个专门用于socket数据读写的系统调用，
+它们增加了对数据读写的控制。
+其中适用于TCP流数据读写的系统调用是：
+
+```C++
+#include <sys/types.h>
+#include <sys/socket.h>
+
+ssize_t  recv(int sockfd, void *buf, size_t len, int flags);
+ssize_t  send(int sockfd, const void *buf, size_t len, int flags);
+```
+recv读取sockfd上的数据，
+buf和len参数分别制定读写缓冲区的位置和大小，
+flags参数通常设置为0。
+recv可能返回0，这意味着通信对方已经关闭连接了。
+recv读取到的数据可能小于期望的长度，因此可能需要多次调用recv，才能读取到完整的数据。
+
+* recv 成功时返回实际读取到的数据的长度，出错时返回-1，并设置errno。
+
+send往sockfd上写入数据，
+buf和len参数分别指定写缓冲区的位置和大小。
+flags参数为数据收发提供了额外的控制（MSG_MORE）
+* send成功时返回写入的数据长度，失败则返回-1，并设置errno。
 
 
 ```C++
