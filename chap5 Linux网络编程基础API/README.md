@@ -115,7 +115,7 @@ struct in_addr
     u_int32_t  s_addr;    //IPv4地址，要用网络字节序表示
 };
 ```
-* [➕ C/C++](#-cc)
+* [C/C++](#-cc)
 
 IPv6的专用socket地址结构体  **sockaddr_in6**
 ```C++
