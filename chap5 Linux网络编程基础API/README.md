@@ -127,8 +127,9 @@ struct in6_addr
 };
 ```
 
-    所有专用socket地址（以及sockaddr  storage）类型的变量在实际使用时都要转化为通用socket地址类型**sockaddr**
-（强制转换即可），因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
+    所有专用socket地址（以及sockaddr  storage）类型的变量
+在实际使用时都要转化为通用socket地址类型**sockaddr**（强制转换即可），
+因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
 
 
 ### 4.IP地址转换函数
