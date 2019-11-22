@@ -382,29 +382,79 @@ flags参数为数据收发提供了额外的控制（MSG_MORE）
 * send成功时返回写入的数据长度，失败则返回-1，并设置errno。
 
 
-```C++
+-----------------------------------------------------------------
 
-```
+### 12.UDP数据读写
 
-
-```C++
-
-```
-
+socket编程接口中用于UDP数据报读写的系统调用是：
 
 ```C++
+#include <sys/types.h>
+#include <sys/socket.h>
 
+ssize_t  recvfrom(int sockfd, void* buf, size_t len, int flags, struct sockaddr* src_addr, socklen_t* addrlen);
+ssize_t  sendto(int sockfd, const void* buf, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t* addrlen);
 ```
+recvfrom读取sockfd上的数据，buf和len参数分别指定读缓冲区的位置和大小。
 
+UDP通信没有连接的概念，每次读取数据都需要获取发送端的socket地址，即参数src_addr所指的内容，addrlen参数则指定该地址的长度。
+
+
+### 13.通用数据读写函数
+
+socket编程接口还提供了一对通用的数据读写系统调用。它们不仅能用于TCP流数据，也能用于UDP数据报：
 
 ```C++
+#include <sys/socket.h>
 
+ssize_t  recvmsg(int sockfd, struct msghdr* msg, int flags);
+ssize_t  sendmsg(int sockfd, struct msghdr* msg, int flags);
 ```
+sockfd参数指定被操作的目标socket。
+msg参数是msghdr结构体类型的指针
+falgs与前面recv,send的相同。
 
+msghdr结构体定义如下：
 
 ```C++
-
+struct msghdr
+{
+    void*  msg_name;  //socket地址
+    socklen_t  msg_namelen; //socket地址的长度 
+    struct  iovec*  msg_iov;  //****分散的内存块 *****
+    int  msg_iovlen;       //分散内存块的数量
+    void*  msg_control;    //指向辅助数据的起始位置
+    socklen_t  msg_controllen;  //辅助数据的大小
+    int msg_flags;     //复制函数中的flags参数，并在调用过程中更新
+};
 ```
+
+msg_iov成员是iovec结构体类型的指针，iovec结构体定义如下：
+
+```C++
+struct iovec
+{
+    void  *iov_base;//内存块起始地址
+    size_t  iov_len;//这块内存的长度
+};
+```
+
+### 14.带外标记
+
+内核通知应用程序带外数据到达的两种常见方式是：I/O复用产生的异常事件和SIGURG信号。
+
+```C++
+#include <sys/socket.h>
+
+int  sockatmark(int  sockfd);
+```
+sockatmark判断sockfd是否处于带外标记，即下一个被读取到的数据是否是带外数据。
+
+如果是，sockatmark返回1，此时我们就可以利用MSG_OOB标志的recv调用来接收带外数据。
+如果不是，则sockatmark返回0。
+
+
+### 15.地址信息函数
 
 
 ```C++
