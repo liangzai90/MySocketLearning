@@ -57,6 +57,9 @@ unsigned short int ntohs(unsigned short int netshort);
 htonl means "host to network long".主机字节序数据转为网络字节序数据。
 
 
+-----------------------------------------------------------------
+
+
 ### 2.通用socket地址
 
 socket网络编程接口中表示socket地址的结构体 **sockaddr**，其定义如下：
@@ -81,6 +84,9 @@ struct sockaddr_storage
     char  __ss_padding[128-sizeof(__ss_aligin)];
 };
 ```
+
+
+-----------------------------------------------------------------
 
 
 ### 3.专用socket地址
@@ -127,31 +133,75 @@ struct in6_addr
 };
 ```
 
-    所有专用socket地址（以及sockaddr  storage）类型的变量
+所有专用socket地址（以及sockaddr  storage）类型的变量
 在实际使用时都要转化为通用socket地址类型**sockaddr**（强制转换即可），
 因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
 
 
+
+-----------------------------------------------------------------
+
+
 ### 4.IP地址转换函数
 
+
+**仅适用于IPv4地址**
 ```C++
+#include <arpa/inet.h>
+in_addr_t  inet_addr(const char * strptr);
+int  inet_aton(const char* cp, struct in_addr* inp);
+char*  inet_ntoa(struct in_addr  in);
+```
+**inet_addr**函数将用点分十进制字符串表示的IPv4地址转化为用网络字节序整数表示的IPv4地址。
+
+失败时返回INADDR_NONE。
+
+**inet_aton**函数完成和inet_addr同样的功能，但是将转化结果存储于参数inp指向的地址结构中。
+
+成功时返回1，失败则返回0。
+
+**inet_ntoa**函数将用网络字节序整数表示的IPv4地址转化为用点分十进制字符串表示的IPv4地址。
+**inet_ntoa不可重入，非线程安全**，该函数内部用一个静态变量存储转化结果，
+函数返回值指向该静态内存。
+
+
+**同时适用于IPv4和IPv6地址**
+```C++
+#include <arpa/inet.h>
+int  inet_pton(int af, const char* src, void* src);
+const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
+```
+**inet_pton**函数将用字符串表示的IP地址src（用点分十进制字符串表示的IPv4地址
+或用十六进制字符串表示的IPv6地址）转换成用网络字节序整数表示的IP地址，并把转换结果存储于dst
+指向的内存中。
+其中，af参数指定地址族，可以使AF_INET或者AF_INET6.
+
+inet_pton成功时返回1，失败则返回0并设置errno。
+
+**inet_ntop**函数进行相反的转换，前3个参数的含义与inet_pton的参数相同，最后一个参数cnt
+指定目标存储单元大小。下面的2个宏可以帮助我们指定这个大小（分别用于IPv4和IPv6）
+
+```C++
+#include <netinet/in.h>
+#define  INET_ADDRSTRLEN   16
+#define  INET6_ADDRSTRLEN  46
+```
+inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
+
+
+**举个IP地址转换的例子**
+```C++
+    address.sin_port = htons(port);//little to big
+    inet_pton(AF_INET, ip, &address.sin_addr);
+    
+    char dest[100] ;
+    inet_ntop(AF_INET, &peerHost.sin_addr,dest,100);
 
 ```
 
+-----------------------------------------------------------------
 
-
-```C++
-
-```
-
-
-
-
-
-
-
-
-
+### 5.创建socket
 
 
 
