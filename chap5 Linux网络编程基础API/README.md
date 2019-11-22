@@ -12,11 +12,10 @@
 
 -----------------------------------------------------------------
 
-* [〽️ 数据结构](#️-数据结构12345)
-
 
 ### 1.主机字节序和网络字节序
 
+大端字节序，也称网络字节序。网络上传输的数据，都是网络字节序的。
 ```C++
 #include <stdio.h>
 void byteorder()
@@ -43,10 +42,8 @@ void byteorder()
 }
 ```
 
-大端字节序，也称网络字节序。网络上传输的数据，都是网络字节序的。
 
 Linux 提供了如下4个函数来完成主机字节序和网络字节序之间的转换
-
 ```C++
 #include <netinet/in.h>
 unsigned long int htonl(unsigned long int hostlong);
@@ -56,7 +53,7 @@ unsigned long int ntohl(unsigned long int netlong);
 unsigned short int ntohs(unsigned short int netshort);
 ```
 
-htonl means "host to network long".主机字节序数据转为网络字节序数据。
+* htonl means "host to network long".主机字节序数据转为网络字节序数据。
 
 
 -----------------------------------------------------------------
@@ -65,7 +62,6 @@ htonl means "host to network long".主机字节序数据转为网络字节序数
 ### 2.通用socket地址
 
 socket网络编程接口中表示socket地址的结构体 **sockaddr**，其定义如下：
-
 ```C++
 #include <bits/socket.h>
 struct sockaddr
@@ -76,7 +72,6 @@ struct sockaddr
 ```
 
 Linux定义了新的通用socket地址结构体，而且还是内存对齐的（__ss_aligin成员的作用）
-
 ```C++
 #include <bits/socket.h>
 struct sockaddr_storage
@@ -135,11 +130,9 @@ struct in6_addr
 };
 ```
 
-所有专用socket地址（以及sockaddr  storage）类型的变量
-在实际使用时都要转化为通用socket地址类型**sockaddr**（强制转换即可），
-因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
-
-
+  所有专用socket地址（以及sockaddr  storage）类型的变量
+  在实际使用时都要转化为通用socket地址类型**sockaddr**（强制转换即可），
+  因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
 
 
 
@@ -156,17 +149,15 @@ in_addr_t  inet_addr(const char * strptr);
 int  inet_aton(const char* cp, struct in_addr* inp);
 char*  inet_ntoa(struct in_addr  in);
 ```
-**inet_addr**函数将用点分十进制字符串表示的IPv4地址转化为用网络字节序整数表示的IPv4地址。
+* **inet_addr**函数将用点分十进制字符串表示的IPv4地址转化为用网络字节序整数表示的IPv4地址。
+* 失败时返回INADDR_NONE。
 
-失败时返回INADDR_NONE。
+* **inet_aton**函数完成和inet_addr同样的功能，但是将转化结果存储于参数inp指向的地址结构中。
+* 成功时返回1，失败则返回0。
 
-**inet_aton**函数完成和inet_addr同样的功能，但是将转化结果存储于参数inp指向的地址结构中。
-
-成功时返回1，失败则返回0。
-
-**inet_ntoa**函数将用网络字节序整数表示的IPv4地址转化为用点分十进制字符串表示的IPv4地址。
-**inet_ntoa不可重入，非线程安全**，该函数内部用一个静态变量存储转化结果，
-函数返回值指向该静态内存。
+* **inet_ntoa**函数将用网络字节序整数表示的IPv4地址转化为用点分十进制字符串表示的IPv4地址。
+* **inet_ntoa不可重入，非线程安全**，该函数内部用一个静态变量存储转化结果，
+* 函数返回值指向该静态内存。
 
 
 **同时适用于IPv4和IPv6地址**
@@ -175,22 +166,23 @@ char*  inet_ntoa(struct in_addr  in);
 int  inet_pton(int af, const char* src, void* src);
 const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
 ```
-**inet_pton**函数将用字符串表示的IP地址src（用点分十进制字符串表示的IPv4地址
+* **inet_pton**函数将用字符串表示的IP地址src（用点分十进制字符串表示的IPv4地址
 或用十六进制字符串表示的IPv6地址）转换成用网络字节序整数表示的IP地址，并把转换结果存储于dst
 指向的内存中。
-其中，af参数指定地址族，可以使AF_INET或者AF_INET6.
+其中，
+* af参数指定地址族，可以使AF_INET或者AF_INET6.
+* inet_pton成功时返回1，失败则返回0并设置errno。
 
-inet_pton成功时返回1，失败则返回0并设置errno。
-
-**inet_ntop**函数进行相反的转换，前3个参数的含义与inet_pton的参数相同，最后一个参数cnt
+* **inet_ntop**函数进行相反的转换，前3个参数的含义与inet_pton的参数相同，最后一个参数cnt
 指定目标存储单元大小。下面的2个宏可以帮助我们指定这个大小（分别用于IPv4和IPv6）
+
 
 ```C++
 #include <netinet/in.h>
 #define  INET_ADDRSTRLEN   16
 #define  INET6_ADDRSTRLEN  46
 ```
-inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
+* inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
 
 
 **举个IP地址转换的例子**
@@ -207,8 +199,104 @@ inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设�
 
 ### 5.创建socket
 
+UNIX/Linux的一个哲学是：所有的东西都是文件。socket也不例外，它就是可读、可写、
+可控制、可关闭的文件描述符。下面的socket系统调用可创建一个socket:
+```C++
+#include <sys/types.h>
+#include <sys/socket.h>
+int socket(int domain, int type, int protocol);
 
-## 😄 数据结构
+eg:
+int sock = socket(PF_INET, SOCK_STREAM, 0);
 
-### 〽️ 数据结构12345
+```
+
+* domain 参数告诉系统使用哪个底层协议族
+* type 参数指定服务器类型（SOCK_STREAM, SOCK_DGRAM）
+* protocol 参数是在前面两个参数构成的协议集合下，再选择一个具体协议。通常为0，使用默认协议。
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+```C++
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
