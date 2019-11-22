@@ -115,6 +115,7 @@ struct in_addr
     u_int32_t  s_addr;    //IPv4地址，要用网络字节序表示
 };
 ```
+* [➕ C/C++](#-cc)
 
 IPv6的专用socket地址结构体  **sockaddr_in6**
 ```C++
@@ -138,7 +139,7 @@ struct in6_addr
 因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
 
 
-#1
+# 1
 
 
 -----------------------------------------------------------------
@@ -191,10 +192,10 @@ inet_pton成功时返回1，失败则返回0并设置errno。
 ```
 inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
 
+## C/C++
 
 
-
-mojombo#1
+:smile: # 1
 
 
 **举个IP地址转换的例子**
@@ -211,7 +212,7 @@ mojombo#1
 
 ### 5.创建socket
 
-mojombo/github-flavored-markdown#1
+:smile: /github-flavored-markdown # 1
 
 Any word wrapped with two tildes (like ~~this~~) will appear crossed out.
 
