@@ -18,6 +18,7 @@
 大端字节序，也称网络字节序。网络上传输的数据，都是网络字节序的。
 ```C++
 #include <stdio.h>
+
 void byteorder()
 {
 	union MyUnion
@@ -46,6 +47,7 @@ void byteorder()
 Linux 提供了如下4个函数来完成主机字节序和网络字节序之间的转换
 ```C++
 #include <netinet/in.h>
+
 unsigned long int htonl(unsigned long int hostlong);
 unsigned short int htons(unsigned short int hostshort);
 
@@ -64,6 +66,7 @@ htonl means "host to network long".主机字节序数据转为网络字节序数
 socket网络编程接口中表示socket地址的结构体 **sockaddr**，其定义如下：
 ```C++
 #include <bits/socket.h>
+
 struct sockaddr
 {
     sa_family_t  sa_family;
@@ -74,6 +77,7 @@ struct sockaddr
 Linux定义了新的通用socket地址结构体，而且还是内存对齐的（__ss_aligin成员的作用）
 ```C++
 #include <bits/socket.h>
+
 struct sockaddr_storage
 {
     sa_family_t  sa_family;
@@ -91,6 +95,7 @@ struct sockaddr_storage
 Linux为各个协议族提供了专门的socket地址和结构
 ```C++
 #include <sys/un.h>
+
 struct sockaddr_un
 {
     sa_family_t  sin_family; //地址族:AF_UNIX
@@ -131,8 +136,8 @@ struct in6_addr
 ```
 
 所有专用socket地址（以及sockaddr  storage）类型的变量
-在实际使用时都要转化为通用socket地址类型**sockaddr**（强制转换即可），
-因为 **所有socket编程接口使用的地址参数的类型都是 sockaddr **。
+在实际使用时都要转化为通用socket地址类型 **sockaddr** （强制转换即可），
+因为 **所有socket编程接口使用的地址参数的类型都是sockaddr**。
 
 
 
@@ -145,6 +150,7 @@ struct in6_addr
 **仅适用于IPv4地址**
 ```C++
 #include <arpa/inet.h>
+
 in_addr_t  inet_addr(const char * strptr);
 int  inet_aton(const char* cp, struct in_addr* inp);
 char*  inet_ntoa(struct in_addr  in);
@@ -163,6 +169,7 @@ char*  inet_ntoa(struct in_addr  in);
 **同时适用于IPv4和IPv6地址**
 ```C++
 #include <arpa/inet.h>
+
 int  inet_pton(int af, const char* src, void* src);
 const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
 ```
@@ -180,6 +187,7 @@ af参数指定地址族，可以使AF_INET或者AF_INET6.
 
 ```C++
 #include <netinet/in.h>
+
 #define  INET_ADDRSTRLEN   16
 #define  INET6_ADDRSTRLEN  46
 ```
@@ -204,6 +212,7 @@ UNIX/Linux的一个哲学是：所有的东西都是文件。socket也不例外�
 ```C++
 #include <sys/types.h>
 #include <sys/socket.h>
+
 int socket(int domain, int type, int protocol);
 
 eg:
@@ -218,14 +227,49 @@ type 参数指定服务器类型（SOCK_STREAM, SOCK_DGRAM）
 protocol 参数是在前面两个参数构成的协议集合下，再选择一个具体协议。通常为0，使用默认协议。
 
 
-```C++
+-----------------------------------------------------------------
 
+
+### 6.命名socket
+
+创建socket时，我们给它指定了地址族，但是并未指定使用该地址族中的哪个具体socket地址。
+**将一个socket与socket地址绑定成为给socket命名**。
+
+在服务器程序中，我们通常要命名socket，因为只有命名之后客户端才能知道该如何连接它。
+客户端则通常不需要命名socket，而是采用**匿名方式**，即使用操作系统自动分配的socket地址。
+
+命名socket的系统调用时 **bind**，其定义如下：
+
+```C++
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int bind(int sockfd, const struct sockaddr* my_addr, socklen_t addrlen);
 ```
 
+bind将my_addr所指的socket地址分配给未命名的sockfd文件描述符，addrlen参数支出该socket地址的长度。
+* bind 成功时返回0，失败则返回-1并设置errno。
+
+
+-----------------------------------------------------------------
+
+### 7.监听socket
+
+socket被命名之后，还不能马上接受客户端连接，我们需要使用如下系统调用来创建一个监听队列以存放待处理的客户端连接：
 
 ```C++
+#include <sys/socket.h>
 
+int listen(int sockfd, int backlog);
 ```
+
+socket参数指定被监听的socket。
+
+backlog参数提示内核监听队列的最大长度。
+
+* listen成功时返回0，失败则返回-1,并设置errno。
+半连接状态：SYN_RCVD
+完全连接状态：ESTABLISHED
 
 
 ```C++
