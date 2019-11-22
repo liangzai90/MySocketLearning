@@ -150,10 +150,10 @@ int  inet_aton(const char* cp, struct in_addr* inp);
 char*  inet_ntoa(struct in_addr  in);
 ```
 * **inet_addr**函数将用点分十进制字符串表示的IPv4地址转化为用网络字节序整数表示的IPv4地址。
-* * 失败时返回INADDR_NONE。
+ * 失败时返回INADDR_NONE。
 
 * **inet_aton**函数完成和inet_addr同样的功能，但是将转化结果存储于参数inp指向的地址结构中。
-* * 成功时返回1，失败则返回0。
+ * 成功时返回1，失败则返回0。
 
 * **inet_ntoa**函数将用网络字节序整数表示的IPv4地址转化为用点分十进制字符串表示的IPv4地址。
 **inet_ntoa不可重入，非线程安全**，该函数内部用一个静态变量存储转化结果， 函数返回值指向该静态内存。
@@ -170,11 +170,11 @@ const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
 指向的内存中。
 其中，
 * af参数指定地址族，可以使AF_INET或者AF_INET6.
-* * inet_pton成功时返回1，失败则返回0并设置errno。
+ * inet_pton成功时返回1，失败则返回0并设置errno。
 
 * **inet_ntop**函数进行相反的转换，前3个参数的含义与inet_pton的参数相同，最后一个参数cnt
 指定目标存储单元大小。下面的2个宏可以帮助我们指定这个大小（分别用于IPv4和IPv6）
-* * inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
+ * inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
 
 
 ```C++
