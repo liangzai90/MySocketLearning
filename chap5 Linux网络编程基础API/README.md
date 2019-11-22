@@ -170,6 +170,8 @@ char*  inet_ntoa(struct in_addr  in);
 函数返回值指向该静态内存。
 
 
+## 数据结构
+
 
 **同时适用于IPv4和IPv6地址**
 ```C++
@@ -195,8 +197,6 @@ inet_pton成功时返回1，失败则返回0并设置errno。
 inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设置errno。
 
 
-##️ 数据结构
-
 **举个IP地址转换的例子**
 ```C++
     address.sin_port = htons(port);//little to big
@@ -210,5 +210,7 @@ inet_ntop成功时返回目标存储单元的地址，失败则返回NULL并设�
 -----------------------------------------------------------------
 
 ### 5.创建socket
+
+
 
 
