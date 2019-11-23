@@ -400,6 +400,10 @@ recvfrom读取sockfd上的数据，buf和len参数分别指定读缓冲区的位
 UDP通信没有连接的概念，每次读取数据都需要获取发送端的socket地址，即参数src_addr所指的内容，addrlen参数则指定该地址的长度。
 
 
+
+------------------------------------------------------------------
+
+
 ### 13.通用数据读写函数
 
 socket编程接口还提供了一对通用的数据读写系统调用。它们不仅能用于TCP流数据，也能用于UDP数据报：
@@ -439,6 +443,10 @@ struct iovec
 };
 ```
 
+
+------------------------------------------------------------------
+
+
 ### 14.带外标记
 
 内核通知应用程序带外数据到达的两种常见方式是：I/O复用产生的异常事件和SIGURG信号。
@@ -454,22 +462,307 @@ sockatmark判断sockfd是否处于带外标记，即下一个被读取到的数�
 如果不是，则sockatmark返回0。
 
 
+
+------------------------------------------------------------------
+
+
+
 ### 15.地址信息函数
 
+在某些情况下，我们想知道一个连接socket的本端socket地址，
+以及远端的socket地址。
+下面这2个函数正是用于解决这个问题：
 
 ```C++
+#include <sys/socket.h>
 
+int getsockname(int sockfd, struct sockaddr* address, socklen_t* address_len);
+int getpeername(int sockfd, struct sockaddr* address, socklen_t* address_len);
+```
+
+getsockname获取sockfd对应的本端socket地址，并将其存储于address参数
+指定的内存中，该socket地址的长度则存储于address_len参数指向的变量中。
+如果实际socket地址的长度大于address所指内存的大小，
+那么该socket地址将被截断。
+
+* getsockname成功时返回0，失败返回-1，并设置errno。
+
+getpeername获取sockfd对应的远端socket地址，
+其参数及返回值的含义与getsockname的参数及返回值相同。
+
+
+
+------------------------------------------------------------------
+
+
+### 16.socket选项
+
+如果说fcntl系统调用是控制文件描述符属性的通用POSIX方法，
+那么下面两个系统调用则是专门用来读取和设置socket文件描述符属性的方法：
+
+```C++
+#include <sys/socket.h>
+
+int getsockopt(int sockfd, int level, int option_name, void* option_value,socklen_t* restrict option_len);
+int setsockopt(int sockfd, int level, int option_name, const void* option_value, socklen_t option_len);
+```
+
+sockfd参数指定被操作的目标socket。
+level参数指定要操作哪个协议的选项（即属性），比如IPv4、IPv6、TCP等。
+option_name参数则指定选项的名字。
+option_value和option_len参数分别是被操作选项的值和长度。
+
+* getsockopt和setsockopt这两个函数成功时返回0，失败时返回-1并设置errno。
+
+对服务器而言，有部分socket选项要在监听(listen)前针对监听socket设置才有效。
+对客户端而言，这些socket选项则应在调用connect函数之前设置，
+因为connect调用成功之后，TCP三次握手已完成。
+
+
+
+------------------------------------------------------------------
+
+
+### 17.SO_REUSEADDR选项
+
+服务器程序可以通过设置socket选项SO_REUSEADDR来强制使用
+被处于TIME_WAIT状态的连接占用的socket地址。
+
+```C++
+//重用本地地址
+
+    const char* ip = argv[1];
+    int port = atoi( argv[2] );
+
+    int sock = socket( PF_INET, SOCK_STREAM, 0 );
+    assert( sock >= 0 );
+    int reuse = 1;
+    setsockopt( sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof( reuse ) );
+
+    struct sockaddr_in address;
+    bzero( &address, sizeof( address ) );
+    address.sin_family = AF_INET;
+    inet_pton( AF_INET, ip, &address.sin_addr );
+    address.sin_port = htons( port );
+    int ret = bind( sock, ( struct sockaddr* )&address, sizeof( address ) );
+    assert( ret != -1 );
+```
+
+此外，我们也可以通过修改内核参数 /proc/sys/net/ipv4/tcp_tw_recycle 来
+快速回收被关闭的socket，从而使得TCP连接根本不进入 TIME_WAIT状态，
+进而允许应用程序立即重用本地的socket地址。
+
+
+
+------------------------------------------------------------------
+
+
+### 18.SO_RCVBUF和SO_SNDBUF选项
+
+SO_RCVBUF和SO_SNDBUF选项分别表示TCP接收缓冲区和发送缓冲区的大小。
+不过，当我们用setsockopt来设置TCP的接收缓冲区和发送缓冲区的大小时，
+系统都会将其值加倍，并且不得小于某个最小值。
+
+此外，我们可以直接修改内核参数 /proc/sys/net/ipv4/tcp_rmem 和
+/proc/sys/net/ipv4/tcp_wmen 来强制
+TCP接收缓冲区和发送缓冲区的带下没有最小值限制。
+
+
+
+------------------------------------------------------------------
+
+
+### 19.SO_RCVLOWAT和SO_SNDLOWAT选项
+
+SO_RCVLOWAT和SO_SNDLOWAT选项分别表示TCP接收缓冲区
+和发送缓冲区的低水位标记。
+它们一般被I/O复用系统调用，用来判断socket是否可读或可写。
+
+默认情况下，TCP接收缓冲区的低水位标记和TCP发送缓冲区的低水位标记均为1字节。
+
+
+
+------------------------------------------------------------------
+
+### 20.SO_LINGER选项
+
+SO_LINGER选项用于控制close系统调用在关闭TCP连接时的行为。
+默认情况下，当我们使用close系统调用来关闭一个socket时，
+close将立即返回，TCP模块负责把该socket对应的TCP发送缓冲区
+中残留的数据发送给对方。
+
+```C++
+#include <sys/socket.h>
+
+struct linger
+{
+    int  l_onoff;//开启（非0）还是关闭（0）该选项
+	int  l_linger;//滞留时间
+};
 ```
 
 
-```C++
 
+------------------------------------------------------------------
+
+### 21.gethostbyname和gethostbyaddr
+
+gethostbyname 函数根据主机名称获取主机的完整信息，
+gethostbyaddr函数根据IP地址获取主机的完整信息。
+gethostbyname函数通常先在本地的 /etc/hsots配置的文件中查找主机，
+如果没有找到，再去访问DNS服务器。
+
+这两个函数定义如下：
+```C++
+#include <netdb.h>
+
+struct hostent* gethostbyname(const char* name);
+struct hostent* gethostbyaddr(const void* addr, size_t len, int type);
+```
+
+hostent结构体定义如下：
+```C++
+#include <netdb.h>
+
+struct hostent
+{
+    char* h_name;    //主机名
+    char** h_aliases; //主机别名列表，可能有多个
+    int h_addrtype;   //地址类型（地址族）
+    int h_length;     //地址长度
+    char** h_addr_list;//按网络字节序列出的主机IP地址列表
+};
 ```
 
 
 
+------------------------------------------------------------------
+
+### 22.getservbyname和getservbyport
+
+getservbyname函数根据名称获取某个服务的完整信息，
+getsrvbyport函数根据端口号获取某个服务的完整信息。
+他们实际上都是通过读取 /etc/services 文件来获取服务信息的。
+
+```C++
+#include <netdb.h>
+
+struct servent* getservbyname(const char* name, const char* proto);
+struct servent* getsrvbyport(int port, const char* proto);
+```
+
+name参数指定目标服务器的名字，port参数指定目标服务对应的端口号，
+proto参数指定服务类型。
+
+结构体servent定义如下：
+```C++
+#include <netdb.h>
+
+struct servent
+{
+    char* s_name;       //服务名称
+    char** s_aliases;   //服务的别名列表，可能有多个
+    int s_port;         //端口号
+    char* s_proto;     //服务类型，通常是tcp或者udp
+};
+```
+ 
+ 
+------------------------------------------------------------------
+
+### 23.getaddrinfo
+
+getaddrinfo函数既能通过主机名获取ip地址（内部使用gethostbyname）也能
+通过服务名获得端口号（内部使用getservbyname）。
+
+```C++
+#include <netdb.h>
+
+int getaddrinfo(const char* hostname, const char* service, const struct addrinfo* hints, struct addrinfo** result)
+```
+
+hostname参数可以接收主机名，也可以接收字符串表示的IP地址（IPv4用点分十进制
+字符串，IPv6用十六进制字符串）。
+同样，service参数可以接收服务名，也可以接收字符串表示的十进制端口号。
+hints参数是应用程序给getaddrinfo的一个提示，一对getaddrinfo的输出进行更精确的控制。
+result参数指向一个链表，该链表用于存储getaddrinfo反馈的结果。
+
+* getaddrinfo成功返回0，失败返回错误码
+
+getaddrinfo反馈的每一条结果都是addrinfo结构体类型的对象，
+结构体addrinfo定义如下：
+
+```C++
+#include <netdb.h>
+
+struct addrinfo
+{
+    int ai_flags;  //
+    int ai_family;//地址族
+    int ai_socktype;//服务类型，SOCK_STREAM 或 SOCK_DGRAM
+    int ai_protocol;//
+    socklent_t ai_addrlen;// socket地址 ai_addr的长度
+    char* ai_canonname;//主机的别名
+    struct sockaddr* ai_addr; //指向socket地址
+    struct addrinfo* ai_next; //指向下一个sockinfo结构的对象
+};
+```
+
+```C++
+//使用 getaddrinfo 函数
+struct  addrinfo  hints;
+struct  addrinfo* res;
+
+bzero(&hints, sizeof(hints));
+hints.ai_socktype = SOCK_STREAM;
+getaddrinfo("ernest-laptop", "daytime", &hints, &res);
+```
+
+getaddrinfo将隐式地分配堆内存（可通过valgrind工具查看），
+因为res指针原本没有指向一块合法内存的，
+所以，getaddrinfo调用结束后，必须使用如下配对函数来释放这块内存：
+
+```C++
+#include <netdb.h>
+
+void  freeaddrinfo(struct addrinfo*  res);
+```
 
 
+
+------------------------------------------------------------------
+
+### 24.getnameinfo
+
+getnameinfo函数能通过socket地址同时获得以字符串表示的主机名（内部使用gethostbyaddr函数）和服务名（内部使用getservbyport函数）。
+
+```C++
+#include <netdb.h>
+
+int getnameinfo(const struct sockaddr* sockaddr, socklen_t addrlen, char* host, socklen_t hostlen, char* serv, socklen_t servlen, int flags);
+```
+
+getnameinfo将返回的主机名存储在host参数指向的缓存中，
+将服务名存储在serv参数指向的缓存中，
+hostlen和servlen参数分别指定这两块缓存的长度。
+flags参数控制getnameinfo的行为。
+
+* getnameinfo成功返回0，失败返回错误码
+
+
+------------------------------------------------------------------
+
+
+### 25.错误码
+
+Linux下strerror函数能将数值错误码errno转换成易读的字符串形式。
+同样，下面的函数可将表5-8(getaddrinfo和getnameinfo的错误码)的错误码转换成其字符串形式：
+
+```C++
+#include <netdb.h>
+
+const char* gai_strerror(int error);
+```
 
 
 
