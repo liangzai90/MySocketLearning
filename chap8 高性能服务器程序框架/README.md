@@ -209,6 +209,107 @@ STATE_MACHINE()
 因为由它引入的代码不仅不处理任何业务逻辑，而且需要访问内核资源。
 如果必须使用“锁”，则可以考虑**减小锁的粒度**。
 
+
+## 3个字符比较函数
+
+* strpbrk()
+* strcasecmp()
+* strspn() 
+* strcspn() 
+
+```C++
+#if _MSC_VER
+#define strcasecmp _stricmp  //strcasecmp 找不到标识符
+#endif
+
+
+#include <iostream>
+#include <string.h>
+using namespace std;
+
+
+
+int main()
+{
+	//====================== strpbrk (比较的字符串，被比较的字符串)=======================
+    //函数原型：extern char *strpbrk(char *str1, char *str2)
+    //参数说明：str1待比较的字符串，str2为指定被搜索的字符串。
+    //所在库名：#include <string.h>	//函数功能：比较字符串str1和str2中是否有相同的字符，如果有，则返回该字符在str1中的位置的指针。
+    //返回说明：返回指针，搜索到的字符在str1中的索引位置的指针。
+	char str1[] = "hellostringEFG";
+	char str2[] = "stringABC";
+	char *str3 = new char[100];
+	memset(str3, '\0', sizeof(str3));
+
+	str3 = strpbrk(str1, str2);
+	cout << str3 << endl;  //output: stringEFG
+
+
+
+
+	//==================== strcasecmp() ====================
+	// 头文件：#include <string.h>
+	//定义函数：int strcasecmp(const char *s1, const char *s2);
+	//函数说明：strcasecmp()用来比较参数s1 和s2 字符串，比较时会自动忽略大小写的差异。
+	//返回值：若参数s1 和s2 字符串相同则返回0。s1 长度大于s2 长度则返回大于0 的值，s1 长度若小于s2 长度则返回小于0 的值。
+	char str4[] = "aBcDef";
+	char str5[] = "ABCDEF";
+	if (0 == strcasecmp(str4, str5))
+	{
+		cout << "equal" << endl;
+	}
+	else
+	{
+		cout << "NOT equal" << endl;
+	}
+
+
+
+	//======================== strspn() ===================
+    //#include <string.h>
+	//size_t strspn(const char *s, const char *accept);
+	char *str6 = "1234567890";
+	char *str7 = "1234567890";
+	char *str8 = "65a3456";
+	char *str9 = "12345678";
+
+	printf("%s in %s is %d\n", str6, str7, strspn(str6, str7));
+	printf("%s in %s is %d\n", str8, str9, strcspn(str8, str9));
+	//1234567890 in 1234567890 is 10
+	//65a3456 in 12345678 is 2
+
+
+
+
+	//======================== strcspn() ==========================
+	//#include <string.h>
+	//size_t strcspn(const char *s, const char *reject);
+	///////////
+	//函数说明：strcspn()从参数s 字符串的开头计算连续的字符，而这些字符都完全不在参数reject 所指的字符串中。
+	//简单地说， 若strcspn()返回的数值为n，则代表字符串s 开头连续有n 个字符都不含字符串reject 内的字符。
+	//返回值：返回字符串s 开头连续不含字符串reject 内的字符数目。
+	char *str = "Linux was first developed for 386/486-based pcs. ";
+	printf("%d\n", strcspn(str, " "));//5
+	printf("%d\n", strcspn(str, "/-"));//33
+	printf("%d\n", strcspn(str, "1234567890"));//30
+	//5 //只计算到" "的出现, 所以返回"Linux"的长度
+	//33 //计算到出现"/"或"－", 所以返回到"6"的长度
+	//30 // 计算到出现数字字符为止, 所以返回"3"出现前的长度
+//	char *str11 = "gdfa1234af5";
+//	char *str10 = "ha";
+	char *str11 = "1234567890";
+	char *str10 = "89ab54";
+	printf("%s in %s is %d\n", str10, str11, strcspn(str11, str10));
+
+
+
+	system("pause");
+	return 0;
+}
+
+```
+
+
 -----------------------------------------------------
 
 这里只是整理大概内容，更详细内容，**请看书**:book:[《Linux高性能服务器编程》](https://item.jd.com/27343565806.html) 游双  著，机械工业出版社]
