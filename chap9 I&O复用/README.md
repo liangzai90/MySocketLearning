@@ -27,7 +27,7 @@ Linux下实现I/O复用的系统调用主要有**select**、**poll**和**epoll**
 
 select 系统调用的用途是：在一段指定时间内，监听用户感兴趣的文件描述符上的可读、可写和异常等事件。
 
-#### 9.1.1 select API
+### 9.1.1 select API
 
 select系统调用的原型如下：
 
