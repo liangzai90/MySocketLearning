@@ -242,44 +242,172 @@ typedef  union  epoll_data
 }epoll_data_t;
 ```
 
+epoll_data_t是一个联合体，其4个成员中使用最多的是fd，它指定事件所从属的目标文件描述符。
+ptr成员可用来指定与fd相关的用户数据。
+
+* epoll_ctl成功时返回0，是吧则返回-1，并设置errno。
 
 
 
+### 9.3.2 epoll_wait 函数
+
+epoll系列系统调用的主要接口是 epoll_wait 函数。它在一段超时时间内等待一组文件描述符上的事件，
+其原型如下：
+
+```C++
+#include  <sys/epoll.h>
+
+int  epoll_wait( int epfd, struct epoll_event* events, int maxevents, int timeout );
+```
+
+函数成功时返回就绪的文件描述符的个数，失败时返回-1并设置errno。
+
+maxevents参数指定最多监听多少个事件，它必须大于0。
+
+epoll_wait函数如果检测到事件，就将所有就绪的事件从内核事件表（由epfd参数指定）中复制到它的第二个参数events指向的数组中。
+这个数组**只用于输出epoll_wait检测到的就绪事件**）。而不像select和poll的数组参数那样，
+即用于传入用户注册的事件，又用于输出内核检测到的就绪事件。
+这就极大地提高了应用程序索引就绪文件描述符的效率。
+
+```C++
+// poll 和 epoll 在使用上的差别
+
+//如何索引 poll 返回的就绪文件描述符
+int ret = poll( fds, MAX_EVENT_NUMBER, -1 );
+// 必须遍历所有已注册文件描述符并找到其中的就绪者（当然，可以利用ret来稍作优化）
+for(int i=0; i<MAX_EVENT_NUMBER; ++i)
+{
+    if(fds[i].revents & POLLIN)  //判断第i个文件描述符是否就绪
+    {
+        int sockfd = fds[i].fd;
+        ///处理sockfd
+    }
+}
+
+
+//如何索引 epoll 返回的就绪文件描述符
+int ret = epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 );
+// 仅遍历就绪的 ret 个文件描述符
+for(int i=0; i<ret; i++)
+{
+    int sockfd = events[i].data_fd;
+    ///sockfd肯定就绪，直接处理
+}
+
+```
+
+### 9.3.3 LT和ET模式
+
+epoll对文件描述符的操作有两种模式：LT(Level Trigger，电平触发)模式和ET(Edge Trigger，边沿触发)模式。
+LT模式是默认的工作模式，这种模式下epoll相当于一个效率较高的poll。
+当往epoll内核事件表中注册一个文件描述符上的EPOLLET事件时，epoll将以ET模式来操作该文件描述符。
+ET模式是epoll的高效工作模式
+
+对于采用LT工作模式的文件描述符，当epoll_wait检测到其上右事件发生并将此事件通知应用程序后，
+应用程序可以不立即处理该事件。这样，应用程序下一次调用epoll_wait时，epoll_wait还会再次向应用程序
+通告此事件，直到该事件被处理。
+
+而对于采用ET工作模式的文件描述符，当epoll_wait检测到其上有事件发生时并将此事件通知应用程序后，
+**应用程序必须立即处理该事件**，因为后续的epoll_wait调用将不再向应用程序通知这一事件。
+
+ET模式在很大程度上降低了同一个epoll事件被重复触发的次数，因此效率要比LT模式高
+
+
+### 9.3.4 EPOLLONESHOT 事件
+
+即使使用了ET模式，一个socket上的某个事件还是可能被触发多次。
+
+我们期望的是一个socket连接在任意一时刻都只被一个线程处理。这一点可以使用epoll的 EPOLLONESHOT 事件实现。
+
+对于注册了EPOLLONESHOT事件的文件描述符，操作系统最多触发其上注册的一个可读、可写或者异常事件，且只触发一次，
+除非我们使用 epoll_ctl 函数重置该文件描述符上注册的EPOLLONESHOT事件。这样，当一个线程在处理某个socket时，
+其他线程时不可能有机会操作该socket的。
 
 
 
+----------------------------------------------------------------------------
+
+## 9.4 三组I/O复用函数的比较
+
+* select的参数类型fd_set没有将文件描述符和事件绑定，它仅仅是一个文件描述符集合，
+因此select需要提供3个这种类型的参数来分别传入和输出可读、可写及异常等事件。
+
+* poll的参数类型pollfd则多少“聪明”一些。它把文件描述符和事件都定义其中，任何事件都被统一处理，
+从而使得编辑接口简洁得多。
+
+* epoll则采用与select和poll完全不同的方式来管理用户注册事件。它在内核中维护一个事件表，
+并提供了独立的系统调用epoll_ctl来控制往其中添加、删除、修改事件。
+
+从实现原理上来说，select和poll采用的都是轮询的方式，即每次调用都要扫描整个注册文件描述符集合，
+并将其中就绪的文件描述符返回给用户程序，因此它们检测就绪事件的时间复杂度是O(n)
+
+epoll_wait则不同，它采用的是回调的方式。
+内核检测到就绪的文件描述符时，将触发回调函数，回调函数就将该文件描述符上对应的事件插入内核就绪事件队列。
+内核最后在适当的实际将该就绪事件队列中的内容拷贝到用户控件。因此epoll_wait无需轮询整个文件描述符集合来
+检测哪些事件已经就绪，其算法事件复杂度是O(1)。
+
+epoll_wait适用于连接数量多， 但活动连接少的情况。
 
 
+## 9.5 I/O复用的高级应用之一：非阻塞connect
+
+## 9.6 I/O复用的高级应用二：聊天室程序
+
+以poll为例实现一个简单的聊天室程序，以阐述如何使用I/O复用技术来同时处理
+**网络连接**和**用户输入**。
+
+### 9.6.1 客户端
+
+客户端程序使用poll同时监听用户输入和网络连接，并利用splice函数将用户输入内容直接定向到网络连接上以发送，
+从而实现数据零拷贝，提高了程序执行效率。
+
+### 9.6.2 服务器
+
+服务器程序使用poll同时管理监听socket和连接socket，并且使用牺牲空间换取时间的策略来提高服务器性能。
 
 
+## 9.7 I/O复用的高级应用三：同时处理TCP和UDP服务
+
+超级服务inetd和android的调试服务adbd，可以监听多个端口。
+
+从bind系统调用的参数来看，一个socket只能与一个socket地址绑定，即一个socket只能用来监听一个端口。
+因此，服务器如果要同时监听多个端口，就必须创建多个socket，并将它们分别绑定到各个端口上。
+这样一来，服务器程序就需要同时管理多个监听socket，I/O复用技术就有了用武之地。
 
 
+## 9.8 超级服务 xinetd 
+
+Linux因特网服务inetd是超级服务。它同时管理着多个子服务，即监听多个端口。
+
+### 9.9.1 xinetd 配置文件
+
+xinetd采用 /etc/xinetd.conf 主配置文件和 /etc/xinetd.d目录下的子配置文件来管理所有服务。
+
+每一个子配置文件用于设置一个子服务的参数。比如，telent子服务的配置文件 /etc/xinetd.d/telent的典型内容如下：
+
+```bash
+# default: on
+# description: The telnet server serves telnet sessions; it uses \
+#	unencrypted username/password pairs for authentication.
+service telnet
+{
+	disable	= no
+	flags		= REUSE
+	socket_type	= stream        
+	wait		= no
+	user		= root
+	server		= /usr/sbin/in.telnetd
+	log_on_failure	+= USERID
+}
+
+```
 
 
+### 9.8.2 xinetd 工作流程
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+xinetd管理的子服务中有的是标准服务，比如时间日期服务daytime、回射服务echo和丢弃服务discard。
+xinetd服务器在内部直接处理这些服务。
+还有的子服务则需要调用外部的服务器程序来处理。
+xinetd通过调用fork和exec函数来加载运行这些服务器程序。
+比如telent 、ftp服务都是这种类型的子服务。
 
