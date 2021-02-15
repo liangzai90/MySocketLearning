@@ -170,7 +170,7 @@ char*  inet_ntoa(struct in_addr  in);
 ```C++
 #include <arpa/inet.h>
 
-int  inet_pton(int af, const char* src, void* src);
+int  inet_pton(int af, const char* src, void* dst);
 const char* inet_ntop(int af, const void* src, char* dst, socklen_t cnt);
 ```
 **inet_pton**函数将用字符串表示的IP地址src（用点分十进制字符串表示的IPv4地址
